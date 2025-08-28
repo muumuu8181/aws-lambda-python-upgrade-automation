@@ -1,0 +1,7 @@
+{
+  "flow_patterns": {
+    "sf-etl-observer-dev-ingest": "csv-to-parquet-pipeline",
+    "sf-json-processor-dev-ingest": "json-to-dynamodb-pipeline",
+    "sf-log-processor-dev-ingest": "log-aggregation-athena-pipeline"
+  }
+}

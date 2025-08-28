@@ -1,0 +1,93 @@
+{
+  "Comment": "Step Functions 2: JSON→DynamoDB パイプライン",
+  "StartAt": "JsonPreprocess",
+  "States": {
+    "JsonPreprocess": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "json-processor-dev-preprocessor",
+        "Payload.$": "$"
+      },
+      "ResultPath": "$.preprocess_result",
+      "Next": "CheckPreprocessSuccess"
+    },
+    "CheckPreprocessSuccess": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.preprocess_result.Payload.success",
+          "BooleanEquals": true,
+          "Next": "DynamoDBWrite"
+        }
+      ],
+      "Default": "ProcessingFailed"
+    },
+    "DynamoDBWrite": {
+      "Type": "Task", 
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "json-processor-dev-dynamodb-writer",
+        "Payload": {
+          "batch_id.$": "$.batch_id",
+          "processed_items.$": "$.preprocess_result.Payload.processed_items",
+          "table_name.$": "$.table_name"
+        }
+      },
+      "ResultPath": "$.dynamodb_result",
+      "Next": "CheckWriteSuccess"
+    },
+    "CheckWriteSuccess": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.dynamodb_result.Payload.success",
+          "BooleanEquals": true,
+          "Next": "ProcessingComplete"
+        }
+      ],
+      "Default": "PartialSuccess"
+    },
+    "ProcessingComplete": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "json-processor-dev-finalizer",
+        "Payload": {
+          "batch_id.$": "$.batch_id",
+          "preprocess_result.$": "$.preprocess_result.Payload",
+          "dynamodb_result.$": "$.dynamodb_result.Payload",
+          "status": "SUCCESS"
+        }
+      },
+      "End": true
+    },
+    "PartialSuccess": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke", 
+      "Parameters": {
+        "FunctionName": "json-processor-dev-finalizer",
+        "Payload": {
+          "batch_id.$": "$.batch_id",
+          "preprocess_result.$": "$.preprocess_result.Payload",
+          "dynamodb_result.$": "$.dynamodb_result.Payload",
+          "status": "PARTIAL_SUCCESS"
+        }
+      },
+      "End": true
+    },
+    "ProcessingFailed": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "json-processor-dev-finalizer",
+        "Payload": {
+          "batch_id.$": "$.batch_id",
+          "preprocess_result.$": "$.preprocess_result.Payload",
+          "status": "FAILED"
+        }
+      },
+      "End": true
+    }
+  }
+}

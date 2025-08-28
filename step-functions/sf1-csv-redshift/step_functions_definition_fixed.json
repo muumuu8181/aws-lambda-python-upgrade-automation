@@ -1,0 +1,175 @@
+{
+  "Comment": "ETL Pipeline with Evidence Collection - CSV to Parquet to Redshift",
+  "StartAt": "PreValidate",
+  "States": {
+    "PreValidate": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "etl-observer-dev-prevalidate",
+        "Payload.$": "$"
+      },
+      "ResultPath": "$.prevalidate_result",
+      "Next": "ProcessFiles",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "Next": "HandlePreValidateFailure",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    
+    "ProcessFiles": {
+      "Type": "Map",
+      "ItemsPath": "$.inputs",
+      "MaxConcurrency": 3,
+      "Parameters": {
+        "batch_id.$": "$.batch_id",
+        "dataset.$": "$.dataset", 
+        "redshift.$": "$.redshift",
+        "file_input.$": "$$.Map.Item.Value"
+      },
+      "Iterator": {
+        "StartAt": "GlueConvert",
+        "States": {
+          "GlueConvert": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::glue:startJobRun.sync",
+            "Parameters": {
+              "JobName": "glue-etl-observer-dev-csv2parquet",
+              "Arguments": {
+                "--batch_id.$": "$.batch_id",
+                "--src_s3_uri.$": "States.Format('s3://{}/{}', $.file_input.bucket, $.file_input.key)",
+                "--dst_s3_uri.$": "States.Format('s3://etl-observer-dev-staging/parquet/{}/{}', $.dataset, $.file_input.key)",
+                "--dataset_name.$": "$.dataset"
+              }
+            },
+            "ResultPath": "$.glue_result",
+            "Next": "RedshiftLoad",
+            "Retry": [
+              {
+                "ErrorEquals": ["Glue.AWSGlueException"],
+                "IntervalSeconds": 30,
+                "MaxAttempts": 2,
+                "BackoffRate": 2
+              }
+            ],
+            "Catch": [
+              {
+                "ErrorEquals": ["States.TaskFailed"],
+                "Next": "HandleGlueFailure",
+                "ResultPath": "$.error"
+              }
+            ]
+          },
+          
+          "RedshiftLoad": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "FunctionName": "etl-observer-dev-redshift-load",
+              "Payload": {
+                "batch_id.$": "$.batch_id",
+                "parquet_s3_uri.$": "States.Format('s3://etl-observer-dev-staging/parquet/{}/{}', $.dataset, $.file_input.key)",
+                "redshift_config.$": "$.redshift",
+                "dataset.$": "$.dataset",
+                "file_key.$": "$.file_input.key"
+              }
+            },
+            "ResultPath": "$.redshift_result",
+            "End": true,
+            "Retry": [
+              {
+                "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
+                "IntervalSeconds": 5,
+                "MaxAttempts": 2,
+                "BackoffRate": 2
+              }
+            ],
+            "Catch": [
+              {
+                "ErrorEquals": ["States.TaskFailed"],
+                "Next": "HandleRedshiftFailure",
+                "ResultPath": "$.error"
+              }
+            ]
+          },
+          
+          "HandleGlueFailure": {
+            "Type": "Pass",
+            "Parameters": {
+              "evidence": {
+                "batch_id.$": "$.batch_id",
+                "step": "glue_convert",
+                "ok": false,
+                "error.$": "$.error.Cause",
+                "input": {
+                  "s3.$": "States.Format('s3://{}/{}', $.file_input.bucket, $.file_input.key)"
+                },
+                "ts.$": "$$.State.EnteredTime"
+              }
+            },
+            "End": true
+          },
+          
+          "HandleRedshiftFailure": {
+            "Type": "Pass",
+            "Parameters": {
+              "evidence": {
+                "batch_id.$": "$.batch_id",
+                "step": "redshift_load", 
+                "ok": false,
+                "error.$": "$.error.Cause",
+                "input": {
+                  "s3.$": "States.Format('s3://etl-observer-dev-staging/parquet/{}/{}', $.dataset, $.file_input.key)"
+                },
+                "ts.$": "$$.State.EnteredTime"
+              }
+            },
+            "End": true
+          }
+        }
+      },
+      "ResultPath": "$.map_results",
+      "Next": "Finalize"
+    },
+    
+    "Finalize": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "etl-observer-dev-finalize",
+        "Payload": {
+          "batch_id.$": "$.batch_id",
+          "inputs.$": "$.inputs",
+          "map_results.$": "$.map_results",
+          "prevalidate_result.$": "$.prevalidate_result"
+        }
+      },
+      "End": true
+    },
+    
+    "HandlePreValidateFailure": {
+      "Type": "Pass",
+      "Parameters": {
+        "evidence": {
+          "batch_id.$": "$.batch_id",
+          "step": "prevalidate",
+          "ok": false,
+          "error.$": "$.error.Cause",
+          "ts.$": "$$.State.EnteredTime"
+        }
+      },
+      "End": true
+    }
+  }
+}

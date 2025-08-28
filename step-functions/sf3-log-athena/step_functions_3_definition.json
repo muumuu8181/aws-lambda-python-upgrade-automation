@@ -1,0 +1,136 @@
+{
+  "Comment": "Step Functions 3: ログ集約→Athena パイプライン",
+  "StartAt": "LogCollect",
+  "States": {
+    "LogCollect": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "log-processor-dev-collector",
+        "Payload.$": "$"
+      },
+      "ResultPath": "$.log_collect_result",
+      "Next": "CheckLogCollectSuccess"
+    },
+    "CheckLogCollectSuccess": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.log_collect_result.Payload.success",
+          "BooleanEquals": true,
+          "Next": "GlueCrawlerRun"
+        }
+      ],
+      "Default": "LogProcessingFailed"
+    },
+    "GlueCrawlerRun": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "log-processor-dev-crawler-runner",
+        "Payload": {
+          "batch_id.$": "$.batch_id",
+          "crawler_name.$": "$.crawler_name", 
+          "database_name.$": "$.database_name",
+          "s3_target_path.$": "$.source_bucket"
+        }
+      },
+      "ResultPath": "$.crawler_result",
+      "Next": "CheckCrawlerSuccess"
+    },
+    "CheckCrawlerSuccess": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.crawler_result.Payload.success",
+          "BooleanEquals": true,
+          "Next": "AthenaQuery"
+        }
+      ],
+      "Default": "CrawlerFailed"
+    },
+    "AthenaQuery": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "log-processor-dev-athena-executor",
+        "Payload": {
+          "batch_id.$": "$.batch_id",
+          "database_name.$": "$.database_name",
+          "tables_created.$": "$.crawler_result.Payload.tables_created",
+          "query_output_location.$": "$.query_output_location"
+        }
+      },
+      "ResultPath": "$.athena_result",
+      "Next": "CheckAthenaSuccess"
+    },
+    "CheckAthenaSuccess": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.athena_result.Payload.success",
+          "BooleanEquals": true,
+          "Next": "LogProcessingComplete"
+        }
+      ],
+      "Default": "AthenaPartialSuccess"
+    },
+    "LogProcessingComplete": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "log-processor-dev-finalizer",
+        "Payload": {
+          "batch_id.$": "$.batch_id",
+          "log_collect_result.$": "$.log_collect_result.Payload",
+          "crawler_result.$": "$.crawler_result.Payload", 
+          "athena_result.$": "$.athena_result.Payload",
+          "status": "SUCCESS"
+        }
+      },
+      "End": true
+    },
+    "AthenaPartialSuccess": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "log-processor-dev-finalizer",
+        "Payload": {
+          "batch_id.$": "$.batch_id",
+          "log_collect_result.$": "$.log_collect_result.Payload",
+          "crawler_result.$": "$.crawler_result.Payload",
+          "athena_result.$": "$.athena_result.Payload",
+          "status": "PARTIAL_SUCCESS"
+        }
+      },
+      "End": true
+    },
+    "CrawlerFailed": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "log-processor-dev-finalizer",
+        "Payload": {
+          "batch_id.$": "$.batch_id",
+          "log_collect_result.$": "$.log_collect_result.Payload",
+          "crawler_result.$": "$.crawler_result.Payload",
+          "status": "CRAWLER_FAILED"
+        }
+      },
+      "End": true
+    },
+    "LogProcessingFailed": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "log-processor-dev-finalizer",
+        "Payload": {
+          "batch_id.$": "$.batch_id",
+          "log_collect_result.$": "$.log_collect_result.Payload",
+          "status": "LOG_COLLECT_FAILED"
+        }
+      },
+      "End": true
+    }
+  }
+}

@@ -1,0 +1,55 @@
+# AWS 認証情報
+.aws/
+aws-credentials
+*.pem
+*.key
+
+# 環境変数
+.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ログファイル
+*.log
+debug.log
+server.log
+
+# 一時ファイル
+*.tmp
+*.temp
+response*.json
+
+# アーカイブ
+archive/
+*backup*
+*_backup_*
+
+# ZIPファイル
+*.zip
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# AWS固有
+cloudformation-templates/
+*.yaml.bak

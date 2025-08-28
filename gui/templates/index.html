@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS ETL Evidence System GUI</title>
+    <link href="/static/style.css" rel="stylesheet">
+    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 AWS ETL Evidence System</h1>
+            <p>Step Functions パイプライン実行GUI</p>
+        </header>
+
+        <main>
+            <section class="pipeline-selection">
+                <h2>📊 パイプライン選択</h2>
+                <form id="execution-form">
+                    <div class="custom-batch-id">
+                        <label for="batch-id">カスタムバッチID (オプション):</label>
+                        <input type="text" id="batch-id" name="custom_batch_id" placeholder="例: PRODUCTION_RUN">
+                    </div>
+
+                    <div class="pipelines">
+                        {% for sf_id, sf_config in step_functions.items() %}
+                        <div class="pipeline-card">
+                            <div class="pipeline-header">
+                                <input type="checkbox" id="{{ sf_id }}" name="selected_sfs" value="{{ sf_id }}">
+                                <label for="{{ sf_id }}">
+                                    <h3>{{ sf_config.name }}</h3>
+                                </label>
+                            </div>
+                            <p class="pipeline-description">{{ sf_config.description }}</p>
+                            <details class="pipeline-details">
+                                <summary>サンプル入力データ</summary>
+                                <pre><code>{{ sf_config.sample_input | tojson(indent=2) }}</code></pre>
+                            </details>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="actions">
+                        <button type="submit" class="btn-primary">🚀 選択したパイプラインを実行</button>
+                        <button type="button" id="select-all" class="btn-secondary">全選択</button>
+                        <button type="button" id="clear-all" class="btn-secondary">全解除</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="results" id="results" style="display: none;">
+                <h2>📈 実行結果</h2>
+                <div id="results-container"></div>
+            </section>
+
+            <section class="status-monitoring" id="status-section" style="display: none;">
+                <h2>📊 実行状況監視</h2>
+                <div id="status-container"></div>
+                <button id="refresh-status" class="btn-secondary">🔄 状況更新</button>
+            </section>
+        </main>
+
+        <footer>
+            <p>AWS ETL Evidence System v2.0 | FastAPI GUI</p>
+            <p><a href="/health" target="_blank">ヘルスチェック</a></p>
+        </footer>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
