@@ -55,7 +55,13 @@ def build_step_functions_config():
             sample_input = {
                 "batch_id": "CSV_BATCH_001",
                 "dataset": "employees", 
-                "files": [{"bucket": s3_config['landing'], "key": "employees.csv"}]
+                "files": [{"bucket": s3_config['landing'], "key": "employees.csv"}],
+                "redshift": {
+                    "host": "your-redshift-cluster.abc123.ap-northeast-1.redshift.amazonaws.com",
+                    "database": "dev",
+                    "user": "your_user",
+                    "password": "your_password"
+                }
             }
         elif sf_id == "sf2":
             sample_input = {
