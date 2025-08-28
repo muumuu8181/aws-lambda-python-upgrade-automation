@@ -165,6 +165,15 @@ section h2 {
     flex-wrap: wrap;
 }
 
+.log-actions {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #f0f8f0;
+    border-radius: 8px;
+    border: 2px dashed #48bb78;
+    text-align: center;
+}
+
 .btn-primary, .btn-secondary, .btn-log {
     padding: 1rem 2rem;
     border: none;

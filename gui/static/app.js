@@ -64,8 +64,8 @@ class ETLSystemGUI {
             this.displayResults(result.results);
             this.executionResults = result.results;
             
-            // ログコピーボタンを表示
-            document.getElementById('copy-logs').style.display = 'inline-flex';
+            // ログコピーセクションを表示
+            document.getElementById('log-actions-section').style.display = 'block';
             
             // 状況監視セクションを表示
             if (this.executionResults.some(r => r.status === 'SUCCESS')) {

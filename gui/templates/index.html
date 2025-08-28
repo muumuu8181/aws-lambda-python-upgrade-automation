@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AWS ETL Evidence System GUI - v0.13</title>
+    <title>AWS ETL Evidence System GUI - v0.15</title>
     <link href="/static/style.css" rel="stylesheet">
     <script src="https://unpkg.com/htmx.org@1.9.6"></script>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🚀 AWS ETL Evidence System <span style="font-size: 0.6em; opacity: 0.8;">v0.13</span></h1>
+            <h1>🚀 AWS ETL Evidence System <span style="font-size: 0.6em; opacity: 0.8;">v0.15</span></h1>
             <p>Step Functions パイプライン実行GUI - ログコピー対応版</p>
         </header>
 
@@ -44,8 +44,11 @@
                     <div class="actions">
                         <button type="button" id="select-all" class="btn-secondary">全選択</button>
                         <button type="button" id="clear-all" class="btn-secondary">全解除</button>
-                        <button type="button" id="copy-logs" class="btn-log" style="display: none;">📋 ログをコピー</button>
                         <button type="submit" class="btn-primary">🚀 選択したパイプラインを実行</button>
+                    </div>
+                    
+                    <div class="log-actions" style="margin-top: 1rem; text-align: center; display: none;" id="log-actions-section">
+                        <button type="button" id="copy-logs" class="btn-log">📋 実行ログをコピー</button>
                     </div>
                 </form>
             </section>
@@ -63,7 +66,7 @@
         </main>
 
         <footer>
-            <p>AWS ETL Evidence System v0.13 | FastAPI GUI</p>
+            <p>AWS ETL Evidence System v0.15 | FastAPI GUI</p>
             <p><a href="/health" target="_blank">ヘルスチェック</a></p>
         </footer>
     </div>
