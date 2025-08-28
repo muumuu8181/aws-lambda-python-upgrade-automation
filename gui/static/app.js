@@ -20,14 +20,11 @@ class ETLSystemGUI {
         document.getElementById('select-all').addEventListener('click', () => this.selectAll());
         document.getElementById('clear-all').addEventListener('click', () => this.clearAll());
 
-        // ログコピー
-        document.getElementById('copy-logs').addEventListener('click', () => this.copyLogs());
+        // 全ログコピー（実行ログ + 監視ログの統合）
+        document.getElementById('copy-all-logs').addEventListener('click', () => this.copyAllLogs());
 
         // 状況更新
         document.getElementById('refresh-status').addEventListener('click', () => this.refreshStatus());
-
-        // 監視ログコピー
-        document.getElementById('copy-monitoring').addEventListener('click', () => this.copyMonitoringLogs());
     }
 
     showDateTime() {
@@ -239,32 +236,67 @@ class ETLSystemGUI {
         alert(`実行詳細:\n${executionArn}\n\n※AWS Consoleで詳細を確認してください`);
     }
 
-    copyLogs() {
+    copyAllLogs() {
         if (this.executionResults.length === 0) {
             alert('コピーする実行結果がありません。');
             return;
         }
         
-        let logText = `=== AWS ETL Evidence System 実行ログ ===\n`;
-        logText += `実行時刻: ${new Date().toISOString()}\n`;
-        logText += `実行パイプライン数: ${this.executionResults.length}\n\n`;
+        // 実行ログ部分
+        let allLogsText = `=== AWS ETL Evidence System 実行ログ ===\n`;
+        allLogsText += `実行時刻: ${new Date().toISOString()}\n`;
+        allLogsText += `実行パイプライン数: ${this.executionResults.length}\n\n`;
         
         this.executionResults.forEach((result, index) => {
-            logText += `${index + 1}. ${result.name}\n`;
-            logText += `   ステータス: ${result.status}\n`;
+            allLogsText += `${index + 1}. ${result.name}\n`;
+            allLogsText += `   ステータス: ${result.status}\n`;
             
             if (result.status === 'SUCCESS') {
-                logText += `   実行ARN: ${result.execution_arn}\n`;
-                logText += `   開始時刻: ${result.start_date}\n`;
-                logText += `   バッチID: ${result.input_data.batch_id}\n`;
+                allLogsText += `   実行ARN: ${result.execution_arn}\n`;
+                allLogsText += `   開始時刻: ${result.start_date}\n`;
+                allLogsText += `   バッチID: ${result.input_data.batch_id}\n`;
             } else {
-                logText += `   エラー: ${result.error}\n`;
+                allLogsText += `   エラー: ${result.error}\n`;
             }
-            logText += `\n`;
+            allLogsText += `\n`;
         });
+
+        // 監視ログ部分を追加
+        const statusContainer = document.getElementById('status-container');
+        if (statusContainer && statusContainer.children.length > 0) {
+            allLogsText += `=== AWS ETL Evidence System 実行状況監視 ===\n`;
+            allLogsText += `取得時刻: ${new Date().toISOString()}\n\n`;
+
+            const statusItems = statusContainer.querySelectorAll('.status-item');
+            statusItems.forEach((item, index) => {
+                const nameElement = item.querySelector('h5');
+                const detailElements = item.querySelectorAll('p');
+                const statusElement = item.querySelector('.execution-status');
+
+                if (nameElement) {
+                    allLogsText += `${index + 1}. ${nameElement.textContent}\n`;
+                }
+
+                detailElements.forEach(detail => {
+                    allLogsText += `   ${detail.textContent}\n`;
+                });
+
+                if (statusElement) {
+                    allLogsText += `   ステータス: ${statusElement.textContent}\n`;
+                }
+
+                allLogsText += '\n';
+            });
+
+            // 最終更新時刻を取得
+            const updateTimeElement = statusContainer.querySelector('p[style*="text-align: center"]');
+            if (updateTimeElement) {
+                allLogsText += `${updateTimeElement.textContent}\n`;
+            }
+        }
         
-        navigator.clipboard.writeText(logText).then(() => {
-            const btn = document.getElementById('copy-logs');
+        navigator.clipboard.writeText(allLogsText).then(() => {
+            const btn = document.getElementById('copy-all-logs');
             const originalText = btn.innerHTML;
             btn.innerHTML = '✅ コピー完了';
             setTimeout(() => {
@@ -289,60 +321,6 @@ class ETLSystemGUI {
         });
     }
 
-    copyMonitoringLogs() {
-        const statusContainer = document.getElementById('status-container');
-        if (!statusContainer || statusContainer.children.length === 0) {
-            alert('コピーする監視ログがありません。');
-            return;
-        }
-
-        let monitoringText = `=== AWS ETL Evidence System 実行状況監視 ===\n`;
-        monitoringText += `取得時刻: ${new Date().toISOString()}\n\n`;
-
-        const statusItems = statusContainer.querySelectorAll('.status-item');
-        if (statusItems.length === 0) {
-            alert('コピーする監視データがありません。');
-            return;
-        }
-
-        statusItems.forEach((item, index) => {
-            const nameElement = item.querySelector('h5');
-            const detailElements = item.querySelectorAll('p');
-            const statusElement = item.querySelector('.execution-status');
-
-            if (nameElement) {
-                monitoringText += `${index + 1}. ${nameElement.textContent}\n`;
-            }
-
-            detailElements.forEach(detail => {
-                monitoringText += `   ${detail.textContent}\n`;
-            });
-
-            if (statusElement) {
-                monitoringText += `   ステータス: ${statusElement.textContent}\n`;
-            }
-
-            monitoringText += '\n';
-        });
-
-        // 最終更新時刻を取得
-        const updateTimeElement = statusContainer.querySelector('p[style*="text-align: center"]');
-        if (updateTimeElement) {
-            monitoringText += `${updateTimeElement.textContent}\n`;
-        }
-
-        navigator.clipboard.writeText(monitoringText).then(() => {
-            const btn = document.getElementById('copy-monitoring');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '✅ コピー完了';
-            setTimeout(() => {
-                btn.innerHTML = originalText;
-            }, 2000);
-        }).catch(err => {
-            console.error('監視ログコピーエラー:', err);
-            alert('監視ログのコピーに失敗しました。');
-        });
-    }
 }
 
 // グローバルインスタンス作成

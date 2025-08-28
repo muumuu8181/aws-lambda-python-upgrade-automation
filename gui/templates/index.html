@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AWS ETL Evidence System GUI - v0.20</title>
+    <title>AWS ETL Evidence System GUI - v0.21</title>
     <link href="/static/style.css" rel="stylesheet">
     <script src="https://unpkg.com/htmx.org@1.9.6"></script>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🚀 AWS ETL Evidence System <span style="font-size: 0.6em; opacity: 0.8;">v0.20</span></h1>
+            <h1>🚀 AWS ETL Evidence System <span style="font-size: 0.6em; opacity: 0.8;">v0.21</span></h1>
             <p>Step Functions パイプライン実行GUI - ログコピー対応版</p>
         </header>
 
@@ -48,7 +48,8 @@
                     </div>
                     
                     <div class="log-actions" style="margin-top: 1rem; text-align: center; display: none;" id="log-actions-section">
-                        <button type="button" id="copy-logs" class="btn-log">📋 実行ログをコピー</button>
+                        <button type="button" id="copy-all-logs" class="btn-log">📋 全ログをコピー</button>
+                        <button type="button" id="refresh-status" class="btn-secondary" style="margin-left: 1rem;">🔄 状況更新</button>
                     </div>
                 </form>
             </section>
@@ -61,15 +62,11 @@
             <section class="status-monitoring" id="status-section" style="display: none;">
                 <h2>📊 実行状況監視</h2>
                 <div id="status-container"></div>
-                <div style="margin-top: 1rem; text-align: center;">
-                    <button id="refresh-status" class="btn-secondary">🔄 状況更新</button>
-                    <button id="copy-monitoring" class="btn-log">📋 監視ログをコピー</button>
-                </div>
             </section>
         </main>
 
         <footer>
-            <p>AWS ETL Evidence System v0.20 | FastAPI GUI</p>
+            <p>AWS ETL Evidence System v0.21 | FastAPI GUI</p>
             <p><a href="/health" target="_blank">ヘルスチェック</a></p>
         </footer>
     </div>
