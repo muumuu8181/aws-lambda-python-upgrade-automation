@@ -30,7 +30,7 @@
     
     "ProcessFiles": {
       "Type": "Map",
-      "ItemsPath": "$.inputs",
+      "ItemsPath": "$.files",
       "MaxConcurrency": 3,
       "Parameters": {
         "batch_id.$": "$.batch_id",

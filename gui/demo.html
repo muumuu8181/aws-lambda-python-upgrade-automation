@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS ETL Evidence System GUI - Demo v0.02</title>
+    <style>
+/* AWS ETL Evidence System GUI スタイル */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* ヘッダー */
+header {
+    text-align: center;
+    color: white;
+    margin-bottom: 2rem;
+}
+
+header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+header p {
+    font-size: 1.2rem;
+    opacity: 0.9;
+}
+
+/* メインコンテンツ */
+main {
+    background: white;
+    border-radius: 15px;
+    padding: 2rem;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    margin-bottom: 2rem;
+}
+
+/* セクション */
+section {
+    margin-bottom: 2rem;
+}
+
+section h2 {
+    color: #4a5568;
+    border-bottom: 3px solid #667eea;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+/* カスタムバッチID */
+.custom-batch-id {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: #f7fafc;
+    border-radius: 8px;
+    border-left: 4px solid #667eea;
+}
+
+.custom-batch-id label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #2d3748;
+}
+
+.custom-batch-id input {
+    width: 100%;
+    max-width: 400px;
+    padding: 0.75rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 1rem;
+    transition: border-color 0.2s;
+}
+
+.custom-batch-id input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+/* パイプラインカード */
+.pipelines {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.pipeline-card {
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.5rem;
+    background: #f8fafc;
+    transition: all 0.3s ease;
+}
+
+.pipeline-card:hover {
+    border-color: #667eea;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.1);
+}
+
+.pipeline-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.pipeline-header input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    margin-top: 0.25rem;
+    cursor: pointer;
+}
+
+.pipeline-header label {
+    flex: 1;
+    cursor: pointer;
+}
+
+.pipeline-header h3 {
+    color: #2d3748;
+    margin-bottom: 0.25rem;
+    font-size: 1.2rem;
+}
+
+.pipeline-description {
+    color: #718096;
+    margin-bottom: 1rem;
+}
+
+.pipeline-details summary {
+    color: #667eea;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 0.5rem;
+}
+
+.pipeline-details pre {
+    background: #2d3748;
+    color: #e2e8f0;
+    padding: 1rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 0.875rem;
+}
+
+/* ボタン */
+.actions {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.btn-primary, .btn-secondary {
+    padding: 1rem 2rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+    background: #e2e8f0;
+    color: #4a5568;
+    border: 2px solid #cbd5e0;
+}
+
+.btn-secondary:hover {
+    background: #cbd5e0;
+    border-color: #a0aec0;
+}
+
+/* デモ結果表示 */
+.demo-results {
+    background: #f7fafc;
+    border-radius: 12px;
+    padding: 1.5rem;
+    border-left: 4px solid #48bb78;
+    margin-top: 2rem;
+    display: none;
+    min-height: 100px;
+}
+
+.demo-results.show {
+    display: block !important;
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.result-item {
+    background: white;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-left: 4px solid #48bb78;
+}
+
+.result-status.success {
+    background: #c6f6d5;
+    color: #22543d;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    display: inline-block;
+}
+
+/* フッター */
+footer {
+    text-align: center;
+    color: white;
+    opacity: 0.8;
+}
+
+footer a {
+    color: white;
+    text-decoration: underline;
+}
+
+/* レスポンシブ */
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+    }
+    
+    header h1 {
+        font-size: 2rem;
+    }
+    
+    .pipelines {
+        grid-template-columns: 1fr;
+    }
+    
+    .actions {
+        flex-direction: column;
+    }
+    
+    .btn-primary, .btn-secondary {
+        width: 100%;
+        justify-content: center;
+    }
+}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 AWS ETL Evidence System <span style="font-size: 0.6em; opacity: 0.8;">v0.04</span></h1>
+            <p>Step Functions パイプライン実行GUI - 徹底デバッグ版</p>
+        </header>
+
+        <main>
+            <section class="pipeline-selection">
+                <h2>📊 パイプライン選択</h2>
+                <form id="execution-form">
+                    <div class="custom-batch-id">
+                        <label for="batch-id">カスタムバッチID (オプション):</label>
+                        <input type="text" id="batch-id" name="custom_batch_id" placeholder="例: PRODUCTION_RUN">
+                    </div>
+
+                    <div class="pipelines">
+                        <div class="pipeline-card">
+                            <div class="pipeline-header">
+                                <input type="checkbox" id="sf1" name="selected_sfs" value="sf1">
+                                <label for="sf1">
+                                    <h3>CSV→Redshift パイプライン</h3>
+                                </label>
+                            </div>
+                            <p class="pipeline-description">S3 CSV → Glue → Parquet → Redshift</p>
+                            <details class="pipeline-details">
+                                <summary>サンプル入力データ</summary>
+                                <pre><code>{
+  "batch_id": "CSV_BATCH_001",
+  "dataset": "employees",
+  "files": ["s3://etl-observer-dev-landing/employees.csv"]
+}</code></pre>
+                            </details>
+                        </div>
+
+                        <div class="pipeline-card">
+                            <div class="pipeline-header">
+                                <input type="checkbox" id="sf2" name="selected_sfs" value="sf2">
+                                <label for="sf2">
+                                    <h3>JSON→DynamoDB パイプライン</h3>
+                                </label>
+                            </div>
+                            <p class="pipeline-description">JSON前処理 → DynamoDB書き込み</p>
+                            <details class="pipeline-details">
+                                <summary>サンプル入力データ</summary>
+                                <pre><code>{
+  "batch_id": "JSON_BATCH_001",
+  "input_data": {
+    "key1": "value1",
+    "key2": "value2"
+  }
+}</code></pre>
+                            </details>
+                        </div>
+
+                        <div class="pipeline-card">
+                            <div class="pipeline-header">
+                                <input type="checkbox" id="sf3" name="selected_sfs" value="sf3">
+                                <label for="sf3">
+                                    <h3>ログ→Athena パイプライン</h3>
+                                </label>
+                            </div>
+                            <p class="pipeline-description">ログ収集 → Glue Crawler → Athena実行</p>
+                            <details class="pipeline-details">
+                                <summary>サンプル入力データ</summary>
+                                <pre><code>{
+  "batch_id": "LOG_BATCH_001",
+  "log_bucket": "etl-observer-dev-staging",
+  "log_prefix": "logs/"
+}</code></pre>
+                            </details>
+                        </div>
+                    </div>
+
+                    <div class="actions">
+                        <button type="submit" class="btn-primary">🚀 選択したパイプラインを実行</button>
+                        <button type="button" id="select-all" class="btn-secondary">全選択</button>
+                        <button type="button" id="clear-all" class="btn-secondary">全解除</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="demo-results" id="demo-results">
+                <!-- 動的に生成される結果がここに挿入されます -->
+            </section>
+        </main>
+
+        <footer>
+            <p>AWS ETL Evidence System v0.1 | FastAPI GUI Demo</p>
+            <p><a href="https://github.com/muumuu8181/aws-etl-evidence-system" target="_blank">GitHub Repository</a></p>
+        </footer>
+    </div>
+
+    <script>
+        // デモ用JavaScript
+        document.getElementById('execution-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            console.log('フォーム送信イベントが発生しました');
+            
+            const selectedSfs = Array.from(document.querySelectorAll('input[name="selected_sfs"]:checked'));
+            console.log('選択されたStep Functions:', selectedSfs.map(cb => cb.value));
+            
+            if (selectedSfs.length === 0) {
+                alert('実行するパイプラインを選択してください。');
+                console.log('エラー: パイプラインが選択されていません');
+                return;
+            }
+
+            // 実行ボタンを一時的に無効化
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '🔄 実行中...';
+            submitBtn.disabled = true;
+            console.log('実行ボタンを無効化しました');
+
+            // デモ結果を生成・表示
+            setTimeout(() => {
+                console.log('デモ結果を表示中...');
+                generateDemoResults(selectedSfs);
+                
+                const resultsSection = document.getElementById('demo-results');
+                resultsSection.classList.add('show');
+                resultsSection.style.display = 'block';
+                console.log('結果セクションを表示しました:', resultsSection.classList, resultsSection.style.display);
+                
+                resultsSection.scrollIntoView({ behavior: 'smooth' });
+                
+                // ボタンを復元
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+                console.log('実行完了、ボタンを復元しました');
+            }, 1500);
+        });
+
+        function generateDemoResults(selectedSfs) {
+            const container = document.querySelector('#demo-results');
+            console.log('=== デバッグ開始 ===');
+            console.log('1. 結果コンテナを取得:', container);
+            console.log('2. コンテナの現在のスタイル:', window.getComputedStyle(container));
+            console.log('3. display値:', window.getComputedStyle(container).display);
+            console.log('4. visibility値:', window.getComputedStyle(container).visibility);
+            
+            // 既存の結果をクリア
+            container.innerHTML = '<h2 style="color: red; font-size: 2em;">📈 実行結果（デモ）- v0.04 - テスト表示</h2>';
+            console.log('5. 結果コンテナをクリアしました');
+            
+            // 強制的にスタイルを設定
+            container.style.display = 'block';
+            container.style.visibility = 'visible';
+            container.style.opacity = '1';
+            container.style.height = 'auto';
+            container.style.backgroundColor = 'yellow';
+            container.style.border = '3px solid red';
+            container.style.zIndex = '9999';
+            
+            console.log('6. 強制スタイル適用後:', window.getComputedStyle(container).display);
+            console.log('7. コンテナの寸法:', container.offsetWidth, 'x', container.offsetHeight);
+            
+            selectedSfs.forEach((checkbox, index) => {
+                const sfId = checkbox.value;
+                const sfNames = {
+                    'sf1': 'CSV→Redshift パイプライン',
+                    'sf2': 'JSON→DynamoDB パイプライン', 
+                    'sf3': 'ログ→Athena パイプライン'
+                };
+                
+                const resultDiv = document.createElement('div');
+                resultDiv.className = 'result-item';
+                resultDiv.style.backgroundColor = 'lightgreen';
+                resultDiv.style.border = '2px solid blue';
+                resultDiv.style.padding = '1rem';
+                resultDiv.style.margin = '1rem 0';
+                
+                resultDiv.innerHTML = `
+                    <h4 style="color: purple; font-size: 1.5em;">${sfNames[sfId]} - テスト表示</h4>
+                    <p style="color: blue; font-weight: bold;">
+                        <span class="result-status success">✅ 実行開始成功</span>
+                    </p>
+                    <p><strong>実行ARN:</strong> arn:aws:states:ap-northeast-1:123456789012:execution:${sfId}-demo:demo-${Date.now()}</p>
+                    <p><strong>開始時刻:</strong> ${new Date().toISOString()}</p>
+                    <p><strong>バッチID:</strong> DEMO_${sfId.toUpperCase()}_${Date.now()}</p>
+                `;
+                
+                container.appendChild(resultDiv);
+                console.log(`8. ${sfNames[sfId]} の結果を追加 - 高さ:${resultDiv.offsetHeight}px`);
+            });
+            
+            console.log('9. 最終コンテナ状態:', container.offsetWidth, 'x', container.offsetHeight);
+            console.log('10. 子要素数:', container.children.length);
+            console.log('=== デバッグ終了 ===');
+        }
+
+        document.getElementById('select-all').addEventListener('click', function() {
+            const checkboxes = document.querySelectorAll('input[name="selected_sfs"]');
+            checkboxes.forEach(cb => cb.checked = true);
+        });
+
+        document.getElementById('clear-all').addEventListener('click', function() {
+            const checkboxes = document.querySelectorAll('input[name="selected_sfs"]');
+            checkboxes.forEach(cb => cb.checked = false);
+        });
+    </script>
+</body>
+</html>

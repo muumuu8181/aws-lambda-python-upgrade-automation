@@ -165,7 +165,7 @@ section h2 {
     flex-wrap: wrap;
 }
 
-.btn-primary, .btn-secondary {
+.btn-primary, .btn-secondary, .btn-log {
     padding: 1rem 2rem;
     border: none;
     border-radius: 8px;
@@ -197,6 +197,35 @@ section h2 {
 .btn-secondary:hover {
     background: #cbd5e0;
     border-color: #a0aec0;
+}
+
+/* ログコピーボタン */
+.btn-log {
+    background: #48bb78;
+    color: white;
+    border: 2px solid #38a169;
+}
+
+.btn-log:hover {
+    background: #38a169;
+    transform: translateY(-1px);
+    box-shadow: 0 5px 15px rgba(72, 187, 120, 0.4);
+}
+
+.log-copy {
+    background: #edf2f7;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    padding: 0.5rem;
+    font-family: monospace;
+    font-size: 0.75rem;
+    margin-top: 0.5rem;
+    cursor: pointer;
+    user-select: all;
+}
+
+.log-copy:hover {
+    background: #e2e8f0;
 }
 
 /* 結果表示 */
@@ -335,7 +364,7 @@ footer a {
         flex-direction: column;
     }
     
-    .btn-primary, .btn-secondary {
+    .btn-primary, .btn-secondary, .btn-log {
         width: 100%;
         justify-content: center;
     }

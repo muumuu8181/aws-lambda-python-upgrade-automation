@@ -20,6 +20,9 @@ class ETLSystemGUI {
         document.getElementById('select-all').addEventListener('click', () => this.selectAll());
         document.getElementById('clear-all').addEventListener('click', () => this.clearAll());
 
+        // ログコピー
+        document.getElementById('copy-logs').addEventListener('click', () => this.copyLogs());
+
         // 状況更新
         document.getElementById('refresh-status').addEventListener('click', () => this.refreshStatus());
     }
@@ -61,6 +64,9 @@ class ETLSystemGUI {
             this.displayResults(result.results);
             this.executionResults = result.results;
             
+            // ログコピーボタンを表示
+            document.getElementById('copy-logs').style.display = 'inline-flex';
+            
             // 状況監視セクションを表示
             if (this.executionResults.some(r => r.status === 'SUCCESS')) {
                 document.getElementById('status-section').style.display = 'block';
@@ -101,6 +107,16 @@ class ETLSystemGUI {
                     <p><strong>開始時刻:</strong> ${result.start_date}</p>
                 ` : ''}
                 ${result.error ? `<p><strong>エラー:</strong> ${result.error}</p>` : ''}
+                ${result.execution_arn ? `
+                    <div class="log-copy" onclick="gui.copyToClipboard(this)" title="クリックでコピー">
+                        ExecutionARN: ${result.execution_arn}
+                    </div>
+                ` : ''}
+                ${result.error ? `
+                    <div class="log-copy" onclick="gui.copyToClipboard(this)" title="クリックでコピー">
+                        Error: ${result.error}
+                    </div>
+                ` : ''}
                 <details style="margin-top: 0.5rem;">
                     <summary>入力データ</summary>
                     <pre><code>${JSON.stringify(result.input_data, null, 2)}</code></pre>
@@ -218,6 +234,56 @@ class ETLSystemGUI {
         // 実行詳細を表示（モーダルまたは新しいタブ）
         console.log('実行詳細:', executionArn);
         alert(`実行詳細:\n${executionArn}\n\n※AWS Consoleで詳細を確認してください`);
+    }
+
+    copyLogs() {
+        if (this.executionResults.length === 0) {
+            alert('コピーする実行結果がありません。');
+            return;
+        }
+        
+        let logText = `=== AWS ETL Evidence System 実行ログ ===\n`;
+        logText += `実行時刻: ${new Date().toISOString()}\n`;
+        logText += `実行パイプライン数: ${this.executionResults.length}\n\n`;
+        
+        this.executionResults.forEach((result, index) => {
+            logText += `${index + 1}. ${result.name}\n`;
+            logText += `   ステータス: ${result.status}\n`;
+            
+            if (result.status === 'SUCCESS') {
+                logText += `   実行ARN: ${result.execution_arn}\n`;
+                logText += `   開始時刻: ${result.start_date}\n`;
+                logText += `   バッチID: ${result.input_data.batch_id}\n`;
+            } else {
+                logText += `   エラー: ${result.error}\n`;
+            }
+            logText += `\n`;
+        });
+        
+        navigator.clipboard.writeText(logText).then(() => {
+            const btn = document.getElementById('copy-logs');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '✅ コピー完了';
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+            }, 2000);
+        }).catch(err => {
+            console.error('クリップボードコピーエラー:', err);
+            alert('ログのコピーに失敗しました。');
+        });
+    }
+
+    copyToClipboard(element) {
+        const text = element.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            const originalBg = element.style.backgroundColor;
+            element.style.backgroundColor = '#c6f6d5';
+            setTimeout(() => {
+                element.style.backgroundColor = originalBg;
+            }, 1000);
+        }).catch(err => {
+            console.error('クリップボードコピーエラー:', err);
+        });
     }
 }
 
