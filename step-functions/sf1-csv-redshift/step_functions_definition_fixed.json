@@ -150,7 +150,7 @@
         "FunctionName": "etl-observer-dev-finalize",
         "Payload": {
           "batch_id.$": "$.batch_id",
-          "inputs.$": "$.inputs",
+          "files.$": "$.files",
           "map_results.$": "$.map_results",
           "prevalidate_result.$": "$.prevalidate_result"
         }
