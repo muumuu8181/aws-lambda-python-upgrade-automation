@@ -10,12 +10,12 @@ def lambda_handler(event, context):
     バッチ処理の最終まとめ
     """
     batch_id = event.get('batch_id')
-    inputs = event.get('inputs', [])
+    files = event.get('files', [])
     map_results = event.get('map_results', [])
     prevalidate_result = event.get('prevalidate_result', {})
     
     # 集計処理
-    total_input_files = len(inputs)
+    total_input_files = len(files)
     successful_conversions = 0
     successful_loads = 0
     total_input_rows = 0
