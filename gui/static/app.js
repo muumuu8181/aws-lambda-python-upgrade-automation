@@ -25,6 +25,9 @@ class ETLSystemGUI {
 
         // 状況更新
         document.getElementById('refresh-status').addEventListener('click', () => this.refreshStatus());
+
+        // 監視ログコピー
+        document.getElementById('copy-monitoring').addEventListener('click', () => this.copyMonitoringLogs());
     }
 
     showDateTime() {
@@ -283,6 +286,61 @@ class ETLSystemGUI {
             }, 1000);
         }).catch(err => {
             console.error('クリップボードコピーエラー:', err);
+        });
+    }
+
+    copyMonitoringLogs() {
+        const statusContainer = document.getElementById('status-container');
+        if (!statusContainer || statusContainer.children.length === 0) {
+            alert('コピーする監視ログがありません。');
+            return;
+        }
+
+        let monitoringText = `=== AWS ETL Evidence System 実行状況監視 ===\n`;
+        monitoringText += `取得時刻: ${new Date().toISOString()}\n\n`;
+
+        const statusItems = statusContainer.querySelectorAll('.status-item');
+        if (statusItems.length === 0) {
+            alert('コピーする監視データがありません。');
+            return;
+        }
+
+        statusItems.forEach((item, index) => {
+            const nameElement = item.querySelector('h5');
+            const detailElements = item.querySelectorAll('p');
+            const statusElement = item.querySelector('.execution-status');
+
+            if (nameElement) {
+                monitoringText += `${index + 1}. ${nameElement.textContent}\n`;
+            }
+
+            detailElements.forEach(detail => {
+                monitoringText += `   ${detail.textContent}\n`;
+            });
+
+            if (statusElement) {
+                monitoringText += `   ステータス: ${statusElement.textContent}\n`;
+            }
+
+            monitoringText += '\n';
+        });
+
+        // 最終更新時刻を取得
+        const updateTimeElement = statusContainer.querySelector('p[style*="text-align: center"]');
+        if (updateTimeElement) {
+            monitoringText += `${updateTimeElement.textContent}\n`;
+        }
+
+        navigator.clipboard.writeText(monitoringText).then(() => {
+            const btn = document.getElementById('copy-monitoring');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '✅ コピー完了';
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+            }, 2000);
+        }).catch(err => {
+            console.error('監視ログコピーエラー:', err);
+            alert('監視ログのコピーに失敗しました。');
         });
     }
 }
