@@ -55,7 +55,7 @@ def build_step_functions_config():
             sample_input = {
                 "batch_id": "CSV_BATCH_001",
                 "dataset": "employees", 
-                "files": [f"s3://{s3_config['landing']}/employees.csv"]
+                "files": [{"bucket": s3_config['landing'], "key": "employees.csv"}]
             }
         elif sf_id == "sf2":
             sample_input = {
