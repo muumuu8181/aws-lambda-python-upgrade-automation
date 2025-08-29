@@ -138,20 +138,110 @@ jobs:
           AWS_DEFAULT_REGION: ${{ env.AWS_REGION }}
         run: |
           echo "Testing Lambda creation with Python ${{ needs.validate-and-prepare.outputs.python-version }}"
+          echo "Test Scenario: ${{ env.TEST_SCENARIO }}"
+          echo "Environment: ${{ env.ENVIRONMENT }}"
+          echo "Step Functions Flow: ${{ env.STEP_FUNCTIONS_FLOW }}"
           
-          # Create a simple test Lambda
-          cat > test_lambda.py << 'EOF'
+          # Create test Lambda based on scenario
+          case "${{ env.TEST_SCENARIO }}" in
+            "A_simple")
+              echo "Creating simple Lambda for scenario A"
+              cat > test_lambda.py << 'EOF'
           def lambda_handler(event, context):
               import sys
               return {
                   'statusCode': 200,
                   'body': {
-                      'message': 'Hello from Python upgrade test!',
+                      'message': 'Simple test completed',
                       'python_version': sys.version,
-                      'event': event
+                      'scenario': 'A_simple',
+                      'environment': '${{ env.ENVIRONMENT }}'
                   }
               }
           EOF
+              ;;
+            "B_conditional")
+              echo "Creating conditional Lambda for scenario B"
+              cat > test_lambda.py << 'EOF'
+          def lambda_handler(event, context):
+              import sys
+              import json
+              
+              # Conditional processing
+              if event.get('condition') == 'branch_a':
+                  result = 'Processed branch A'
+              elif event.get('condition') == 'branch_b':
+                  result = 'Processed branch B'  
+              else:
+                  result = 'Default processing'
+              
+              return {
+                  'statusCode': 200,
+                  'body': {
+                      'message': 'Conditional test completed',
+                      'result': result,
+                      'python_version': sys.version,
+                      'scenario': 'B_conditional',
+                      'environment': '${{ env.ENVIRONMENT }}'
+                  }
+              }
+          EOF
+              ;;
+            "C_complex")
+              echo "Creating complex Lambda for scenario C with Glue integration"
+              cat > test_lambda.py << 'EOF'
+          def lambda_handler(event, context):
+              import sys
+              import json
+              import boto3
+              
+              # Complex processing with multiple services
+              try:
+                  # Simulate Glue job interaction
+                  glue_response = {"JobRunId": "test-job-run-123"}
+                  
+                  # Simulate conditional branching
+                  processing_type = event.get('processing_type', 'standard')
+                  
+                  if processing_type == 'batch':
+                      result = 'Batch processing initiated'
+                  elif processing_type == 'stream':
+                      result = 'Stream processing initiated'
+                  elif processing_type == 'complex':
+                      result = 'Complex multi-stage processing initiated'
+                  else:
+                      result = 'Standard processing initiated'
+                  
+                  return {
+                      'statusCode': 200,
+                      'body': {
+                          'message': 'Complex test completed',
+                          'result': result,
+                          'glue_job': glue_response,
+                          'python_version': sys.version,
+                          'scenario': 'C_complex',
+                          'environment': '${{ env.ENVIRONMENT }}',
+                          'step_functions_flow': '${{ env.STEP_FUNCTIONS_FLOW }}'
+                      }
+                  }
+              except Exception as e:
+                  return {
+                      'statusCode': 500,
+                      'body': {
+                          'error': str(e),
+                          'scenario': 'C_complex'
+                      }
+                  }
+          EOF
+              ;;
+            *)
+              echo "Unknown scenario, using simple Lambda"
+              cat > test_lambda.py << 'EOF'
+          def lambda_handler(event, context):
+              return {'statusCode': 200, 'body': 'Default Lambda'}
+          EOF
+              ;;
+          esac
           
           # Package the Lambda
           zip test_lambda.zip test_lambda.py
@@ -219,6 +309,24 @@ jobs:
           TARGET_RUNTIME: python${{ needs.validate-and-prepare.outputs.python-version }}
         run: |
           echo "Updating Lambda functions to $TARGET_RUNTIME"
+          echo "Target Environment: ${{ env.ENVIRONMENT }}"
+          echo "Test Scenario: ${{ env.TEST_SCENARIO }}"
+          
+          # Environment-specific function naming
+          case "${{ env.ENVIRONMENT }}" in
+            "prod")
+              FUNCTION_PREFIX="prod-"
+              ;;
+            "staging") 
+              FUNCTION_PREFIX="staging-"
+              ;;
+            "dev")
+              FUNCTION_PREFIX="dev-"
+              ;;
+            *)
+              FUNCTION_PREFIX=""
+              ;;
+          esac
           
           # Split comma-separated function names
           IFS=',' read -ra FUNC_ARRAY <<< "$FUNCTIONS"
@@ -348,6 +456,14 @@ jobs:
           **Date:** $(date)  
           **Target Python Version:** ${{ needs.validate-and-prepare.outputs.python-version }}  
           **Functions:** ${{ needs.validate-and-prepare.outputs.lambda-functions }}  
+          **Test Scenario:** ${{ env.TEST_SCENARIO }}  
+          **Environment:** ${{ env.ENVIRONMENT }}  
+          **Step Functions Flow:** ${{ env.STEP_FUNCTIONS_FLOW }}  
+          **AWS Region:** ${{ env.AWS_REGION }}  
+          
+          ## Test Configuration
+          - **LocalStack Testing:** ${{ github.event.inputs.test_mode }}
+          - **Custom Config:** ${{ env.CUSTOM_CONFIG }}
           
           ## Results
           
