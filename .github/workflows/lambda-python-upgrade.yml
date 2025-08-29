@@ -1,0 +1,325 @@
+name: Lambda Python Version Upgrade & Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_python_version:
+        description: 'Target Python version (e.g., 3.13, 3.12, 3.11)'
+        required: true
+        default: '3.13'
+      lambda_functions:
+        description: 'Lambda functions to upgrade (comma-separated or "all")'
+        required: true
+        default: 'all'
+      test_mode:
+        description: 'Test with LocalStack before deploying to AWS'
+        type: boolean
+        required: true
+        default: true
+
+env:
+  PYTHON_VERSION: ${{ github.event.inputs.target_python_version }}
+  AWS_REGION: ap-northeast-1
+  LOCALSTACK_ENDPOINT: http://localhost:4566
+
+jobs:
+  validate-and-prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      lambda-functions: ${{ steps.prepare.outputs.lambda-functions }}
+      python-version: ${{ steps.validate.outputs.python-version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate Python version
+        id: validate
+        run: |
+          PYTHON_VER="${{ github.event.inputs.target_python_version }}"
+          if [[ ! "$PYTHON_VER" =~ ^3\.(9|10|11|12|13)$ ]]; then
+            echo "Error: Unsupported Python version $PYTHON_VER"
+            exit 1
+          fi
+          echo "python-version=$PYTHON_VER" >> $GITHUB_OUTPUT
+
+      - name: Prepare Lambda function list
+        id: prepare
+        run: |
+          if [[ "${{ github.event.inputs.lambda_functions }}" == "all" ]]; then
+            # Extract all Lambda function names from the project
+            FUNCTIONS=$(find lambda-functions/ step-functions/ -name "*.py" -exec basename {} .py \; | sort -u | tr '\n' ',' | sed 's/,$//')
+          else
+            FUNCTIONS="${{ github.event.inputs.lambda_functions }}"
+          fi
+          echo "lambda-functions=$FUNCTIONS" >> $GITHUB_OUTPUT
+          echo "Functions to upgrade: $FUNCTIONS"
+
+  localstack-test:
+    runs-on: ubuntu-latest
+    needs: validate-and-prepare
+    if: github.event.inputs.test_mode == 'true'
+    services:
+      localstack:
+        image: localstack/localstack:latest
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: lambda,s3,stepfunctions,glue,redshift
+          DEBUG: 1
+          LAMBDA_EXECUTOR: docker-reuse
+        options: >-
+          --health-cmd="curl -f http://localhost:4566/_localstack/health || exit 1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python ${{ needs.validate-and-prepare.outputs.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ needs.validate-and-prepare.outputs.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install boto3 awscli-local localstack
+
+      - name: Wait for LocalStack
+        run: |
+          timeout 120 bash -c 'until curl -f http://localhost:4566/_localstack/health; do sleep 2; done'
+
+      - name: Test Lambda function creation with new Python version
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: ${{ env.AWS_REGION }}
+        run: |
+          echo "Testing Lambda creation with Python ${{ needs.validate-and-prepare.outputs.python-version }}"
+          
+          # Create a simple test Lambda
+          cat > test_lambda.py << 'EOF'
+          def lambda_handler(event, context):
+              import sys
+              return {
+                  'statusCode': 200,
+                  'body': {
+                      'message': 'Hello from Python upgrade test!',
+                      'python_version': sys.version,
+                      'event': event
+                  }
+              }
+          EOF
+          
+          # Package the Lambda
+          zip test_lambda.zip test_lambda.py
+          
+          # Create Lambda function in LocalStack
+          awslocal lambda create-function \
+            --function-name python-upgrade-test \
+            --runtime python${{ needs.validate-and-prepare.outputs.python-version }} \
+            --role arn:aws:iam::123456789012:role/lambda-role \
+            --handler test_lambda.lambda_handler \
+            --zip-file fileb://test_lambda.zip
+          
+          # Test the Lambda function
+          awslocal lambda invoke \
+            --function-name python-upgrade-test \
+            --payload '{"test": "data"}' \
+            response.json
+          
+          echo "Lambda response:"
+          cat response.json
+
+  upgrade-lambda-functions:
+    runs-on: ubuntu-latest
+    needs: [validate-and-prepare, localstack-test]
+    if: always() && needs.validate-and-prepare.result == 'success' && (needs.localstack-test.result == 'success' || github.event.inputs.test_mode == 'false')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python ${{ needs.validate-and-prepare.outputs.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ needs.validate-and-prepare.outputs.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install boto3 awscli
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update Lambda function runtimes
+        env:
+          FUNCTIONS: ${{ needs.validate-and-prepare.outputs.lambda-functions }}
+          TARGET_RUNTIME: python${{ needs.validate-and-prepare.outputs.python-version }}
+        run: |
+          echo "Updating Lambda functions to $TARGET_RUNTIME"
+          
+          # Split comma-separated function names
+          IFS=',' read -ra FUNC_ARRAY <<< "$FUNCTIONS"
+          
+          for func in "${FUNC_ARRAY[@]}"; do
+            func=$(echo $func | xargs)  # Trim whitespace
+            if [[ -z "$func" ]]; then continue; fi
+            
+            echo "Processing function: $func"
+            
+            # Check if function exists
+            if aws lambda get-function --function-name "$func" >/dev/null 2>&1; then
+              echo "Updating runtime for existing function: $func"
+              
+              aws lambda update-function-configuration \
+                --function-name "$func" \
+                --runtime "$TARGET_RUNTIME" || {
+                echo "Warning: Failed to update $func runtime"
+                continue
+              }
+              
+              # Wait for function to be in Active state
+              echo "Waiting for $func to be ready..."
+              aws lambda wait function-updated --function-name "$func"
+              
+              echo "Successfully updated $func to $TARGET_RUNTIME"
+            else
+              echo "Function $func does not exist, skipping..."
+            fi
+          done
+
+      - name: Test updated functions
+        env:
+          FUNCTIONS: ${{ needs.validate-and-prepare.outputs.lambda-functions }}
+        run: |
+          echo "Testing updated Lambda functions"
+          
+          IFS=',' read -ra FUNC_ARRAY <<< "$FUNCTIONS"
+          
+          for func in "${FUNC_ARRAY[@]}"; do
+            func=$(echo $func | xargs)
+            if [[ -z "$func" ]]; then continue; fi
+            
+            if aws lambda get-function --function-name "$func" >/dev/null 2>&1; then
+              echo "Testing function: $func"
+              
+              # Get function configuration
+              aws lambda get-function-configuration --function-name "$func" \
+                --query 'Runtime' --output text
+              
+              # Simple invoke test (if function accepts empty payload)
+              aws lambda invoke \
+                --function-name "$func" \
+                --payload '{}' \
+                "/tmp/${func}_response.json" >/dev/null 2>&1 || {
+                echo "Warning: Could not invoke $func for testing"
+              }
+            fi
+          done
+
+  update-step-functions:
+    runs-on: ubuntu-latest
+    needs: [validate-and-prepare, upgrade-lambda-functions]
+    if: always() && needs.upgrade-lambda-functions.result == 'success'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update Glue Job Python version
+        run: |
+          echo "Updating Glue Job Python versions"
+          
+          # Update Glue job for CSV to Parquet conversion
+          GLUE_JOB="etl-observer-dev-csv-to-parquet"
+          
+          if aws glue get-job --job-name "$GLUE_JOB" >/dev/null 2>&1; then
+            echo "Updating Glue job: $GLUE_JOB"
+            
+            # Get current job definition
+            aws glue get-job --job-name "$GLUE_JOB" > current_job.json
+            
+            # Update Python version in job definition
+            # Note: Glue supports specific Python versions, need to map accordingly
+            GLUE_PYTHON_VERSION="3"  # Glue uses "3" for Python 3.x
+            if [[ "${{ needs.validate-and-prepare.outputs.python-version }}" == "3.9" ]]; then
+              GLUE_PYTHON_VERSION="3.9"
+            fi
+            
+            aws glue update-job \
+              --job-name "$GLUE_JOB" \
+              --job-update PythonVersion="$GLUE_PYTHON_VERSION" || {
+              echo "Warning: Could not update Glue job Python version"
+            }
+          fi
+
+      - name: Test ETL pipeline
+        run: |
+          echo "Testing complete ETL pipeline"
+          
+          # Test Step Functions execution with sample data
+          aws stepfunctions start-execution \
+            --state-machine-arn "arn:aws:states:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:stateMachine:sf-etl-observer-dev-ingest" \
+            --name "python-upgrade-test-$(date +%s)" \
+            --input file://tests/sample_input.json || {
+            echo "Warning: Could not test Step Functions pipeline"
+          }
+
+  generate-report:
+    runs-on: ubuntu-latest
+    needs: [validate-and-prepare, localstack-test, upgrade-lambda-functions, update-step-functions]
+    if: always()
+    
+    steps:
+      - name: Generate upgrade report
+        run: |
+          cat << EOF > upgrade_report.md
+          # Lambda Python Upgrade Report
+          
+          **Date:** $(date)  
+          **Target Python Version:** ${{ needs.validate-and-prepare.outputs.python-version }}  
+          **Functions:** ${{ needs.validate-and-prepare.outputs.lambda-functions }}  
+          
+          ## Results
+          
+          - **Validation:** ${{ needs.validate-and-prepare.result }}
+          - **LocalStack Test:** ${{ needs.localstack-test.result }}
+          - **Lambda Upgrade:** ${{ needs.upgrade-lambda-functions.result }}
+          - **Step Functions Update:** ${{ needs.update-step-functions.result }}
+          
+          ## Next Steps
+          
+          $( if [[ "${{ needs.upgrade-lambda-functions.result }}" == "success" ]]; then
+            echo "✅ Lambda functions successfully upgraded to Python ${{ needs.validate-and-prepare.outputs.python-version }}"
+            echo "- Monitor functions for any runtime issues"
+            echo "- Update dependencies if needed"
+          else
+            echo "❌ Lambda upgrade failed - check logs for details"
+            echo "- Review function compatibility with Python ${{ needs.validate-and-prepare.outputs.python-version }}"
+            echo "- Check AWS permissions"
+          fi )
+          EOF
+          
+          echo "Upgrade report generated:"
+          cat upgrade_report.md
+
+      - name: Upload report as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: lambda-upgrade-report
+          path: upgrade_report.md

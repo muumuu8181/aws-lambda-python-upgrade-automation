@@ -1,0 +1,90 @@
+{
+  "lambda_functions": {
+    "etl-observer-dev-monitoring": {
+      "current_python": "3.9",
+      "dependencies": ["boto3", "json", "datetime"],
+      "timeout": 300,
+      "memory": 256
+    },
+    "etl-observer-dev-glue-csv-parquet": {
+      "current_python": "3.9", 
+      "dependencies": ["boto3"],
+      "timeout": 60,
+      "memory": 128
+    },
+    "etl-observer-dev-redshift-load": {
+      "current_python": "3.9",
+      "dependencies": ["boto3", "psycopg2-binary"],
+      "timeout": 180,
+      "memory": 256
+    },
+    "etl-observer-dev-finalize": {
+      "current_python": "3.9",
+      "dependencies": ["boto3"],
+      "timeout": 60,
+      "memory": 128
+    },
+    "json-processor-dev-preprocessor": {
+      "current_python": "3.9",
+      "dependencies": ["boto3", "json"],
+      "timeout": 60,
+      "memory": 128
+    },
+    "json-processor-dev-dynamodb-writer": {
+      "current_python": "3.9",
+      "dependencies": ["boto3"],
+      "timeout": 120,
+      "memory": 256
+    },
+    "log-processor-dev-collector": {
+      "current_python": "3.9",
+      "dependencies": ["boto3"],
+      "timeout": 300,
+      "memory": 512
+    },
+    "log-processor-dev-athena-executor": {
+      "current_python": "3.9",
+      "dependencies": ["boto3"],
+      "timeout": 600,
+      "memory": 512
+    }
+  },
+  "glue_jobs": {
+    "etl-observer-dev-csv-to-parquet": {
+      "current_python": "3",
+      "dependencies": ["awswrangler"],
+      "dpu": 2
+    }
+  },
+  "step_functions": {
+    "sf-etl-observer-dev-ingest": {
+      "type": "csv-redshift",
+      "lambda_dependencies": [
+        "etl-observer-dev-glue-csv-parquet",
+        "etl-observer-dev-redshift-load", 
+        "etl-observer-dev-finalize"
+      ]
+    },
+    "sf-json-processor-dev-ingest": {
+      "type": "json-dynamodb",
+      "lambda_dependencies": [
+        "json-processor-dev-preprocessor",
+        "json-processor-dev-dynamodb-writer"
+      ]
+    },
+    "sf-log-processor-dev-ingest": {
+      "type": "log-athena", 
+      "lambda_dependencies": [
+        "log-processor-dev-collector",
+        "log-processor-dev-athena-executor"
+      ]
+    }
+  },
+  "python_compatibility": {
+    "3.9": {"status": "current", "end_of_life": "2025-10"},
+    "3.10": {"status": "supported", "end_of_life": "2026-10"},
+    "3.11": {"status": "supported", "end_of_life": "2027-10"},
+    "3.12": {"status": "recommended", "end_of_life": "2028-10"},
+    "3.13": {"status": "latest", "end_of_life": "2029-10"}
+  }
+}
