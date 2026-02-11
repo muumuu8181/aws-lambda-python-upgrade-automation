@@ -8,6 +8,7 @@ from datetime import datetime
 
 s3 = boto3.client('s3')
 
+# Add input validationdef validate_event(event):    """Validate Lambda event structure"""    required_keys = ["runtime", "function_name"]    for key in required_keys:        if key not in event:            raise ValueError(f"Missing required key: {key}")    return True
 def lambda_handler(event, context):
     """
     CSVファイルの存在確認とバリデーション
